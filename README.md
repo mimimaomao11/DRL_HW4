@@ -4,6 +4,15 @@
 
 ---
 
+## Live Demo
+
+**Interactive Agent Demo (Hugging Face Spaces):**
+[https://huggingface.co/spaces/mimimaomao11/drl-hw4-demo](https://huggingface.co/spaces/mimimaomao11/drl-hw4-demo)
+
+Watch DQN and PPO agents play CartPole-v1 in real-time, and compare their performance side-by-side.
+
+---
+
 ## Project Structure
 
 ```
@@ -21,7 +30,8 @@ HW4/
 │   ├── report.md                  ← Full written report (Markdown)
 │   ├── slides.pdf                 ← Presentation slides (PDF)
 │   └── slides.md                  ← Presentation slides (Marp)
-└── models/                        ← Trained model weights (.zip)
+├── models/                        ← Trained model weights (.zip)
+└── hf_space/                      ← Hugging Face Spaces demo app
 ```
 
 ---
