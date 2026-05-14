@@ -1,0 +1,16 @@
+# Virtual environment
+drl_env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp build files
+build_html.py
+generate_pdf.py
+report.html
+
+# OS
+.DS_Store
+Thumbs.db
