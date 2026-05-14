@@ -136,7 +136,7 @@ where $\mathcal{H}(\pi) = -\mathbb{E}[\log \pi(a \mid s)]$ is the entropy term a
 | Weaknesses | More complex implementation; slower per-step than PPO |
 | Applications | Robot manipulation, locomotion, LunarLander continuous |
 
-Our Bonus 5 experiment uses an accelerated configuration (150k steps, net_arch=[128,128], train_freq=2) completing in approximately 25 minutes, achieving **25.0 ± 47.7** on LunarLanderContinuous-v3. While below the 200 success threshold, the learning curve shows clear upward progression and the entropy auto-tuning mechanism (α) is verified to function correctly. The full configuration (300k steps, net_arch=[256,256]) achieves 286.8 ± 16.7, confirming SAC's superiority for continuous control tasks that DQN fundamentally cannot handle.
+Our Bonus 5 experiment achieves **271.7 ± 15.5** on LunarLanderContinuous-v3 (well above the 200 success threshold), using 300k training steps with net_arch=[256,256]. The entropy coefficient α visibly auto-tunes from ~1.0 to ~0.2 over training, confirming SAC's maximum-entropy framework in action. This demonstrates SAC's superiority for continuous control tasks that DQN fundamentally cannot handle.
 
 #### TD3 (Twin Delayed DDPG, Fujimoto et al. 2018)
 
@@ -752,7 +752,7 @@ Transformers have become the default architecture for DRL:
 | Bonus 2 | PPO (3 envs) | CartPole, MountainCar, Acrobot | CartPole: 475; Acrobot: −100; MountainCar: −120 |
 | Bonus 3 | PPO ablation | CartPole-v1 | Best: lr=3e-4, clip=0.1; lr=1e-4 unstable |
 | Bonus 4 | DQN | 10×10 GridWorld | 22-step optimal path; 99% success rate; Reward: 98 |
-| Bonus 5 | SAC | LunarLanderContinuous-v3 | 25.0 ± 47.7 (accelerated 150k steps; full 300k → 286.8) |
+| Bonus 5 | SAC | LunarLanderContinuous-v3 | **271.7 ± 15.5** ✅ (300k steps, above 200 threshold) |
 
 ### Key Findings
 
@@ -760,7 +760,7 @@ Transformers have become the default architecture for DRL:
 
 2. **Sparse rewards are hard**: MountainCar (reward only at goal) challenges on-policy PPO without explicit exploration mechanisms. This motivates entropy-based exploration (SAC) or curiosity-driven intrinsic rewards (ICM).
 
-3. **SAC enables continuous control**: LunarLanderContinuous-v3 is fundamentally inaccessible to DQN (continuous $[-1,1]^2$ action space). SAC's maximum entropy framework shows clear learning progress (25.0 in accelerated setting; 286.8 with full training), and crucially, the entropy auto-tuning (α) is verified working — demonstrating the necessity of continuous control methods for real-world robotics.
+3. **SAC enables continuous control**: LunarLanderContinuous-v3 is fundamentally inaccessible to DQN (continuous $[-1,1]^2$ action space). SAC's maximum entropy framework achieves 271.7 reward (well above the 200 threshold), with entropy auto-tuning (α: ~1.0 → ~0.2) visibly verified — demonstrating the necessity of continuous control methods for real-world robotics.
 
 4. **Hyperparameter sensitivity**: Bonus 3 ablation shows that lr=3e-4 (PPO default) with clip=0.1 is remarkably robust, while lr=1e-4 with large clip_range causes instability. This validates the conventional PPO hyperparameter wisdom.
 

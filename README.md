@@ -110,8 +110,7 @@ python code/bonus_5_sac_lunarlander.py    # Bonus 5: SAC LunarLander
 
 | Config | Steps | Network | Reward | Time |
 |--------|-------|---------|--------|------|
-| Fast (this run) | 150k | [128,128] | **25.0 ± 47.7** | ~25 min |
-| Full | 300k | [256,256] | **286.8 ± 16.7** | ~40 min |
+| **This run** | **300k** | **[256,256]** | **271.7 ± 15.5** ✅ | ~87 min |
 | Success threshold | — | — | 200 | — |
 
 **Why SAC, not DQN?**
