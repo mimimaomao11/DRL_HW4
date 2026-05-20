@@ -1,15 +1,21 @@
-# HW4 — Deep Reinforcement Learning Survey
+# HW4 — DRL Research Assistant: AI Harness System
 
-> **Course:** Deep Reinforcement Learning | **Date:** May 2026
+> **Course:** Deep Reinforcement Learning — Homework 4  
+> **Topic:** AI Harness Systems Design and Analysis  
+> **Date:** May 2026
 
 ---
 
-## Live Demo
+## What is this?
 
-**Interactive Agent Demo (Hugging Face Spaces):**
-[https://huggingface.co/spaces/mimimaomao11/drl-hw4-demo](https://huggingface.co/spaces/mimimaomao11/drl-hw4-demo)
+A **DRL Research Assistant** powered by Claude Sonnet 4.6 (function calling).  
+The agent automates three repetitive bottlenecks in DRL research:
 
-Watch DQN and PPO agents play CartPole-v1 in real-time, and compare their performance side-by-side.
+1. **Literature search** — query ArXiv and get structured paper summaries
+2. **Experiment execution** — train DQN / PPO / SAC agents via Stable-Baselines3
+3. **Result analysis** — compare multiple runs with ranked insights
+
+The LLM acts as the **system controller**, dynamically deciding which tool to call based on the user's natural language query (ReAct loop). Results persist across sessions via a local JSON database.
 
 ---
 
@@ -17,118 +23,130 @@ Watch DQN and PPO agents play CartPole-v1 in real-time, and compare their perfor
 
 ```
 HW4/
-├── README.md                      ← This file (GitHub Pages homepage)
-├── code/                          ← Python experiment scripts
-│   ├── main.py                    ← Bonus 1: DQN vs PPO
-│   ├── bonus_2_multi_env.py       ← Bonus 2: PPO multi-environment
-│   ├── bonus_3_hyperparam.py      ← Bonus 3: Hyperparameter ablation
-│   ├── bonus_4_custom_gridworld.py← Bonus 4: Custom GridWorld + DQN
-│   └── bonus_5_sac_lunarlander.py ← Bonus 5: SAC LunarLander
-├── figures/                       ← All experiment result images
+├── README.md
+│
+├── agent/
+│   ├── harness_agent.py          ← Main agent: LLM controller + ReAct loop
+│   ├── tools/
+│   │   ├── arxiv_search.py       ← Tool 1: ArXiv paper search (stdlib, no extra deps)
+│   │   ├── rl_experiment.py      ← Tool 2: SB3 RL training + result persistence
+│   │   └── result_analyzer.py    ← Tool 3: Experiment comparison + insight generation
+│   └── memory/
+│       └── experiment_db.json    ← Auto-created: persistent experiment results
+│
 ├── docs/
-│   ├── report.pdf                 ← Full written report (PDF)
-│   ├── report.md                  ← Full written report (Markdown)
-│   ├── slides.pdf                 ← Presentation slides (PDF)
-│   └── slides.md                  ← Presentation slides (Marp)
-├── models/                        ← Trained model weights (.zip)
-└── hf_space/                      ← Hugging Face Spaces demo app
+│   ├── report_harness.md         ← Written report (IEEE format, ~4 pages)
+│   ├── infographic.md            ← System architecture diagrams (ASCII + Mermaid)
+│   └── log.md                    ← AI-assisted design process log
+│
+└── drl_env/                      ← Python virtual environment
 ```
 
 ---
 
 ## Quick Start
 
+### 1. Install dependencies
+
 ```bash
 # Activate virtual environment (Windows)
 drl_env\Scripts\activate
 
-# Run experiments
-python code/main.py                       # Bonus 1: DQN vs PPO
-python code/bonus_2_multi_env.py          # Bonus 2: Multi-environment
-python code/bonus_3_hyperparam.py         # Bonus 3: Ablation study
-python code/bonus_4_custom_gridworld.py   # Bonus 4: GridWorld DQN
-python code/bonus_5_sac_lunarlander.py    # Bonus 5: SAC LunarLander
+# Install required packages
+pip install anthropic stable-baselines3 "gymnasium[box2d]"
 ```
 
-**Requirements:** Python 3.13, `swig`, `gymnasium[box2d]`, `stable-baselines3`
+### 2. Set API key
+
+```bash
+# Windows (PowerShell)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+
+# Linux / Mac
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+### 3. Run the agent
+
+```bash
+python agent/harness_agent.py
+```
 
 ---
 
-## Bonus 1 — DQN vs PPO (CartPole-v1)
+## Example Session
 
-**Algorithm:** DQN vs PPO | **Environment:** CartPole-v1 | **Steps:** 60,000
+```
+============================================================
+  DRL Research Assistant Agent
+  Type 'exit' to quit | 'reset' to clear history
+============================================================
 
-| Algorithm | Final Reward | Convergence |
-|-----------|-------------|-------------|
-| **PPO** | **500.0** | ~150 episodes |
-| DQN | 144.4 | Peaks at ep.~300, then catastrophic forgetting |
+You: Compare PPO and DQN on CartPole with 50k steps
 
-**Key insight:** PPO's clipped surrogate objective prevents destructive policy updates, making it stable where DQN fails. This is exactly why PPO is the industry standard for RLHF (ChatGPT, Claude alignment).
+  [tool] search_arxiv({"query": "DQN PPO CartPole comparison"})
+  [tool] run_rl_experiment({"algorithm": "PPO", "environment": "CartPole-v1", "n_steps": 50000})
+  [tool] run_rl_experiment({"algorithm": "DQN", "environment": "CartPole-v1", "n_steps": 50000})
+  [tool] analyze_results({"experiment_ids": ["a1b2c3d4", "e5f6g7h8"]})
 
-![DQN vs PPO Learning Curves](figures/drl_cartpole_comparison.png)
+Agent: ## Experiment Results
 
----
+| Algorithm | Environment  | Mean Reward | Std  |
+|-----------|-------------|-------------|------|
+| **PPO**   | CartPole-v1 | **487.3**   | 12.4 |
+| DQN       | CartPole-v1 | 144.1       | 67.2 |
 
-## Bonus 2 — PPO Multi-Environment
+**Finding:** PPO outperforms DQN by 3.4× on CartPole-v1 (50k steps).
+PPO's clipped surrogate objective prevents catastrophic forgetting,
+which is the dominant failure mode for DQN in this task.
 
-**Algorithm:** PPO | **Environments:** CartPole, MountainCar, Acrobot
-
-| Environment | Reward | Target | Result |
-|-------------|--------|--------|--------|
-| CartPole-v1 | ~475 | 500 | Near-perfect |
-| MountainCar-v0 | ~-120 | >-110 | Sparse reward challenge |
-| Acrobot-v1 | ~-100 | >-200 | Success |
-
-**Key insight:** MountainCar's sparse reward (only at goal) challenges on-policy PPO — this motivates SAC's entropy-based exploration.
-
-![PPO Multi-environment](figures/bonus2_multi_env.png)
-
----
-
-## Bonus 3 — PPO Hyperparameter Ablation
-
-**Grid search:** 3 learning rates × 4 clip ranges × 3 seeds = 36 runs
-
-**Best configuration:** `lr=3e-4, clip_range=0.1` → Reward **500**
-
-![Hyperparameter Heatmap](figures/bonus3_hyperparam_heatmap.png)
-
-![Learning Curves by LR](figures/bonus3_hyperparam_curves.png)
+**Literature:** Schulman et al. (2017) show that PPO's constraint
+on policy update magnitude is key to its stability advantage.
+```
 
 ---
 
-## Bonus 4 — Custom GridWorld + DQN
+## System Architecture
 
-**Algorithm:** DQN | **Environment:** 10×10 custom maze (obstacles + traps)
-
-| Metric | Value |
-|--------|-------|
-| Optimal path | **22 steps** |
-| Final reward | **98.0 ± 0.0** |
-| Success rate | **99%** |
-| Training episodes | 4,848 |
-
-**Key insight:** Demonstrates the Q-table → neural network evolution: same Q-learning principle, but the neural network generalizes over continuous state spaces.
-
-![GridWorld Path](figures/bonus4_gridworld_path.png)
+```
+ User (natural language query)
+          │
+          ▼
+ ┌─────────────────────────────────────────┐
+ │     LLM Controller (Claude Sonnet 4.6)  │
+ │  • Parse intent                         │
+ │  • Plan tool sequence (ReAct reasoning) │
+ │  • Synthesize results into response     │
+ └──────┬──────────────┬───────────────────┘
+        │              │              │
+        ▼              ▼              ▼
+  ┌──────────┐  ┌────────────┐  ┌──────────────┐
+  │  Tool 1  │  │   Tool 2   │  │   Tool 3     │
+  │  search_ │  │  run_rl_   │  │  analyze_    │
+  │  arxiv() │  │ experiment │  │  results()   │
+  │          │  │    ()      │  │              │
+  │ ArXiv API│  │ SB3 +      │  │ experiment_  │
+  │ (stdlib) │  │ Gymnasium  │  │ db.json      │
+  └──────────┘  └────────────┘  └──────────────┘
+                      │
+                      ▼
+         ┌─────────────────────────────┐
+         │        Memory System        │
+         │                             │
+         │ Short-term: context window  │
+         │ Long-term:  experiment_db   │
+         └─────────────────────────────┘
+```
 
 ---
 
-## Bonus 5 — SAC LunarLanderContinuous-v3
+## Tools Reference
 
-**Algorithm:** SAC (Max-Entropy) | **Environment:** LunarLanderContinuous-v3
-
-| Config | Steps | Network | Reward | Time |
-|--------|-------|---------|--------|------|
-| **This run** | **300k** | **[256,256]** | **271.7 ± 15.5** ✅ | ~87 min |
-| Success threshold | — | — | 200 | — |
-
-**Why SAC, not DQN?**
-- LunarLander requires **continuous thrust** ∈ [-1, 1]² — DQN can only output discrete actions
-- SAC maximizes `reward + α·H(π)` simultaneously (maximum entropy framework)
-- Temperature α is **auto-tuned** during training (verified in entropy curve below)
-
-![SAC Learning Curve](figures/bonus5_sac_curve.png)
+| Tool | Input | Output | External Dependency |
+|------|-------|--------|---------------------|
+| `search_arxiv(query, max_results)` | Free-text query | `{papers[], count}` | None (stdlib) |
+| `run_rl_experiment(algorithm, environment, n_steps, hyperparams)` | SB3 config | `{experiment_id, mean_reward, std_reward, status}` | `stable-baselines3`, `gymnasium` |
+| `analyze_results(experiment_ids, metrics)` | List of IDs or `["all"]` | `{comparison_table[], best_experiment, insights[]}` | None |
 
 ---
 
@@ -136,28 +154,18 @@ python code/bonus_5_sac_lunarlander.py    # Bonus 5: SAC LunarLander
 
 | File | Description |
 |------|-------------|
-| [docs/report.pdf](docs/report.pdf) | Full survey report (Part 1–7, ~20 pages) |
-| [docs/slides.pdf](docs/slides.pdf) | Presentation slides (17 pages) |
-| [docs/report.md](docs/report.md) | Report source (Markdown) |
-| [docs/slides.md](docs/slides.md) | Slides source (Marp format) |
+| [docs/report_harness.md](docs/report_harness.md) | Written report — problem definition, architecture, tool design, workflow, evaluation, orchestration |
+| [docs/infographic.md](docs/infographic.md) | Visual system design — ASCII architecture, Mermaid sequence diagram, tool I/O summary |
+| [docs/log.md](docs/log.md) | Design process log — 6 sessions, all architecture decisions and rejected alternatives |
 
 ---
 
-## Environment Setup
+## Environment
 
-| Package | Version |
-|---------|---------|
+| Item | Version |
+|------|---------|
 | Python | 3.13 |
-| gymnasium | 1.2.3 |
+| anthropic | latest |
 | stable-baselines3 | 2.8.0 |
-| box2d | 2.3.10 |
+| gymnasium | 1.2.3 |
 | OS | Windows 11 |
-
-```bash
-# Full install from scratch
-python -m venv drl_env
-drl_env\Scripts\activate
-pip install stable-baselines3 matplotlib numpy
-pip install swig
-pip install "gymnasium[box2d]"
-```

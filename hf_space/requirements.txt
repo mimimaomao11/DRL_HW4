@@ -1,6 +1,0 @@
-pygame
-gymnasium==1.2.3
-stable-baselines3==2.8.0
-imageio[ffmpeg]
-matplotlib
-numpy
