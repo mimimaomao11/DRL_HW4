@@ -11,6 +11,12 @@ build_html.py
 generate_pdf.py
 report.html
 
+# Agent runtime data
+agent/memory/experiment_db.json
+
+# API keys (never commit)
+.env
+
 # OS
 .DS_Store
 Thumbs.db
