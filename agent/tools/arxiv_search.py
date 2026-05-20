@@ -1,5 +1,6 @@
 """Tool 1: ArXiv Paper Search — queries ArXiv API and returns structured paper metadata."""
 
+import time
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -15,7 +16,7 @@ def search_arxiv(query: str, max_results: int = 5) -> dict:
     Returns:
         dict with keys: papers (list), count (int), query (str)
     """
-    base_url = "http://export.arxiv.org/api/query?"
+    base_url = "https://export.arxiv.org/api/query?"
     params = urllib.parse.urlencode({
         "search_query": f"all:{query}",
         "start": 0,
@@ -24,8 +25,9 @@ def search_arxiv(query: str, max_results: int = 5) -> dict:
         "sortOrder": "descending",
     })
 
+    time.sleep(3)  # ArXiv rate limit: max 1 req / 3 sec
     try:
-        with urllib.request.urlopen(base_url + params, timeout=10) as response:
+        with urllib.request.urlopen(base_url + params, timeout=30) as response:
             xml_data = response.read().decode("utf-8")
     except Exception as e:
         return {"error": f"ArXiv API request failed: {e}", "papers": [], "count": 0}

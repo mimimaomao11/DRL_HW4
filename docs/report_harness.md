@@ -45,7 +45,7 @@ The system follows a three-layer architecture: **Controller → Tools → Memory
                              │
                              ▼
 ┌──────────────────────────────────────────────────────────────┐
-│              LLM Controller  (Claude Sonnet 4.6)              │
+│                 LLM Controller  (GPT-4o)                      │
 │                                                               │
 │  • Interprets user intent                                     │
 │  • Plans tool-call sequence (ReAct reasoning)                 │
@@ -75,7 +75,7 @@ The system follows a three-layer architecture: **Controller → Tools → Memory
 
 ### 2.1 LLM as System Controller
 
-The LLM (Claude Sonnet 4.6) acts as an autonomous **orchestrator**, not just a text generator. It:
+The LLM (GPT-4o) acts as an autonomous **orchestrator**, not just a text generator. It:
 
 - Reads the user's natural language query and infers research intent
 - Decides **which tools to call**, **in what order**, and **with what parameters**
@@ -278,15 +278,15 @@ Since this is a research-assistant agent (not a pure RL task), evaluation requir
 
 ### 6.1 Function Calling Mechanism
 
-Claude's native **tool use API** is the orchestration backbone. Each tool is defined as a JSON schema specifying name, description, and `input_schema`. The LLM selects tools by returning `stop_reason = "tool_use"` with structured `tool_use` content blocks. The Python harness dispatches these to the actual function implementations and returns results as `tool_result` content blocks.
+OpenAI's **function calling API** is the orchestration backbone. Each tool is defined as a JSON schema with `type: "function"` wrapping a `name`, `description`, and `parameters` object. The LLM selects tools by returning `finish_reason = "tool_calls"` with a list of `tool_calls` objects. The Python harness dispatches each call to the actual function implementation and returns results as `role: "tool"` messages keyed by `tool_call_id`.
 
 ```
-LLM output:  stop_reason="tool_use"
-             → content: [ToolUseBlock(name="search_arxiv", input={...})]
-Python:      → _dispatch("search_arxiv", {...})
+LLM output:  finish_reason="tool_calls"
+             → message.tool_calls: [{id, function.name, function.arguments}]
+Python:      → _dispatch(name, json.loads(arguments))
              → returns JSON string
-Python:      → appends tool_result to history
-LLM input:   → next messages.create() call with full history
+Python:      → appends {"role": "tool", "tool_call_id": id, "content": result}
+LLM input:   → next chat.completions.create() call with full history
 ```
 
 ### 6.2 Decision-Making Logic
@@ -323,5 +323,5 @@ Future extensions include adding a `plot_results` tool for automatic figure gene
 3. Schulman, J., et al. (2017). Proximal Policy Optimization Algorithms. *arXiv:1707.06347*.
 4. Mnih, V., et al. (2015). Human-level control through deep reinforcement learning. *Nature*, 518, 529–533.
 5. Raffin, A., et al. (2021). Stable-Baselines3: Reliable Reinforcement Learning Implementations. *JMLR*.
-6. Anthropic (2025). Tool use (function calling). *Anthropic Documentation*.
+6. OpenAI (2025). Function calling. *OpenAI Platform Documentation*.
 7. Chase, H. (2022). LangChain — Building applications with LLMs through composability. *GitHub*.

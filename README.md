@@ -8,7 +8,7 @@
 
 ## What is this?
 
-A **DRL Research Assistant** powered by Claude Sonnet 4.6 (function calling).  
+A **DRL Research Assistant** powered by GPT-4o (function calling).  
 The agent automates three repetitive bottlenecks in DRL research:
 
 1. **Literature search** — query ArXiv and get structured paper summaries
@@ -53,17 +53,17 @@ HW4/
 drl_env\Scripts\activate
 
 # Install required packages
-pip install anthropic stable-baselines3 "gymnasium[box2d]"
+pip install openai stable-baselines3 gymnasium
 ```
 
 ### 2. Set API key
 
 ```bash
 # Windows (PowerShell)
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:OPENAI_API_KEY = "sk-..."
 
 # Linux / Mac
-export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
 ```
 
 ### 3. Run the agent
@@ -113,7 +113,7 @@ on policy update magnitude is key to its stability advantage.
           │
           ▼
  ┌─────────────────────────────────────────┐
- │     LLM Controller (Claude Sonnet 4.6)  │
+ │          LLM Controller (GPT-4o)         │
  │  • Parse intent                         │
  │  • Plan tool sequence (ReAct reasoning) │
  │  • Synthesize results into response     │
@@ -165,7 +165,7 @@ on policy update magnitude is key to its stability advantage.
 | Item | Version |
 |------|---------|
 | Python | 3.13 |
-| anthropic | latest |
+| openai | 2.37.0 |
 | stable-baselines3 | 2.8.0 |
 | gymnasium | 1.2.3 |
 | OS | Windows 11 |

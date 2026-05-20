@@ -20,7 +20,7 @@
                  ▼
   ╔══════════════════════════════════════╗
   ║      LLM CONTROLLER                  ║
-  ║      Claude Sonnet 4.6               ║
+  ║      GPT-4o                          ║
   ║                                      ║
   ║  1. Parse intent                     ║
   ║  2. Reason about tool sequence       ║
@@ -71,7 +71,7 @@
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant LLM as LLM Controller<br/>(Claude Sonnet 4.6)
+    participant LLM as LLM Controller<br/>(GPT-4o)
     participant T1 as Tool 1<br/>search_arxiv
     participant T2 as Tool 2<br/>run_rl_experiment
     participant T3 as Tool 3<br/>analyze_results

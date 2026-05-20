@@ -1,86 +1,94 @@
-"""DRL Research Assistant — AI Harness Agent using Claude function calling (tool use)."""
+"""DRL Research Assistant — AI Harness Agent using OpenAI function calling (tool use)."""
 
 import json
 import os
-import anthropic
+from openai import OpenAI
 from tools import search_arxiv, run_rl_experiment, analyze_results
 
-# ── Tool schemas (function calling definitions) ────────────────────────────────
+# ── Tool schemas (OpenAI function calling format) ──────────────────────────────
 
 TOOLS: list[dict] = [
     {
-        "name": "search_arxiv",
-        "description": (
-            "Search ArXiv for research papers on DRL / AI topics. "
-            "Use this first to understand the state-of-the-art before designing experiments."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query, e.g. 'proximal policy optimization robotics'",
+        "type": "function",
+        "function": {
+            "name": "search_arxiv",
+            "description": (
+                "Search ArXiv for research papers on DRL / AI topics. "
+                "Use this first to understand the state-of-the-art before designing experiments."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query, e.g. 'proximal policy optimization robotics'",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum papers to return (default 5, max 20)",
+                    },
                 },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum papers to return (default 5, max 20)",
-                    "default": 5,
-                },
+                "required": ["query"],
             },
-            "required": ["query"],
         },
     },
     {
-        "name": "run_rl_experiment",
-        "description": (
-            "Train a Stable-Baselines3 RL agent on a Gymnasium environment. "
-            "Results are saved to a persistent database and can be retrieved later."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "algorithm": {
-                    "type": "string",
-                    "enum": ["DQN", "PPO", "SAC"],
-                    "description": "RL algorithm to use",
+        "type": "function",
+        "function": {
+            "name": "run_rl_experiment",
+            "description": (
+                "Train a Stable-Baselines3 RL agent on a Gymnasium environment. "
+                "Results are saved to a persistent database and can be retrieved later."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "algorithm": {
+                        "type": "string",
+                        "enum": ["DQN", "PPO", "SAC"],
+                        "description": "RL algorithm to use",
+                    },
+                    "environment": {
+                        "type": "string",
+                        "description": "Gymnasium environment ID, e.g. 'CartPole-v1'",
+                    },
+                    "n_steps": {
+                        "type": "integer",
+                        "description": "Total training timesteps",
+                    },
+                    "hyperparams": {
+                        "type": "object",
+                        "description": "Optional SB3 algorithm kwargs, e.g. {\"learning_rate\": 3e-4}",
+                    },
                 },
-                "environment": {
-                    "type": "string",
-                    "description": "Gymnasium environment ID, e.g. 'CartPole-v1'",
-                },
-                "n_steps": {
-                    "type": "integer",
-                    "description": "Total training timesteps",
-                },
-                "hyperparams": {
-                    "type": "object",
-                    "description": "Optional SB3 algorithm kwargs, e.g. {\"learning_rate\": 3e-4}",
-                },
+                "required": ["algorithm", "environment", "n_steps"],
             },
-            "required": ["algorithm", "environment", "n_steps"],
         },
     },
     {
-        "name": "analyze_results",
-        "description": (
-            "Load and compare experiment results from the database. "
-            "Pass experiment IDs from previous run_rl_experiment calls, or [\"all\"] for every run."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "experiment_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of experiment IDs, or [\"all\"] to compare every run",
+        "type": "function",
+        "function": {
+            "name": "analyze_results",
+            "description": (
+                "Load and compare experiment results from the database. "
+                "Pass experiment IDs from previous run_rl_experiment calls, or [\"all\"] for every run."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "experiment_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of experiment IDs, or [\"all\"] to compare every run",
+                    },
+                    "metrics": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Metrics to include (default: [\"mean_reward\", \"std_reward\"])",
+                    },
                 },
-                "metrics": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Metrics to include (default: [\"mean_reward\", \"std_reward\"])",
-                },
+                "required": ["experiment_ids"],
             },
-            "required": ["experiment_ids"],
         },
     },
 ]
@@ -91,7 +99,7 @@ SYSTEM_PROMPT = """\
 You are DRL-Agent, an AI research assistant specialising in Deep Reinforcement Learning.
 
 Your capabilities:
-1. search_arxiv   — find relevant research papers before designing experiments
+1. search_arxiv      — find relevant research papers before designing experiments
 2. run_rl_experiment — execute training runs with SB3 (DQN / PPO / SAC)
 3. analyze_results   — compare stored experiments and surface insights
 
@@ -122,67 +130,59 @@ def _dispatch(name: str, params: dict) -> str:
 # ── Agent class ────────────────────────────────────────────────────────────────
 
 class DRLResearchAgent:
-    def __init__(self, model: str = "claude-sonnet-4-6"):
-        self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    def __init__(self, model: str = "gpt-4o"):
+        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.model = model
-        self.history: list[dict] = []
+        self.history: list[dict] = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
 
     def chat(self, user_message: str) -> str:
         """Send a message and run the ReAct tool-use loop until a final text reply."""
         self.history.append({"role": "user", "content": user_message})
 
         while True:
-            response = self.client.messages.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
-                max_tokens=4096,
-                system=[
-                    # Cache the static system prompt across turns
-                    {"type": "text", "text": SYSTEM_PROMPT,
-                     "cache_control": {"type": "ephemeral"}},
-                ],
                 tools=TOOLS,
                 messages=self.history,
             )
 
-            # Collect text blocks for display while building the assistant turn
-            assistant_turn_content = list(response.content)
-            self.history.append({"role": "assistant", "content": assistant_turn_content})
+            message = response.choices[0].message
+            finish_reason = response.choices[0].finish_reason
 
-            if response.stop_reason != "tool_use":
-                # Final text reply
-                text_blocks = [b.text for b in response.content if hasattr(b, "text")]
-                return "\n".join(text_blocks)
+            # Add assistant message to history (includes tool_calls if any)
+            self.history.append(message)
 
-            # Execute all requested tools and feed results back
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    print(f"  [tool] {block.name}({json.dumps(block.input, ensure_ascii=False)})")
-                    output = _dispatch(block.name, block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": output,
-                    })
+            if finish_reason != "tool_calls":
+                return message.content or ""
 
-            self.history.append({"role": "user", "content": tool_results})
+            # Execute all requested tool calls and feed results back
+            for tool_call in message.tool_calls:
+                params = json.loads(tool_call.function.arguments)
+                print(f"  [tool] {tool_call.function.name}({json.dumps(params, ensure_ascii=False)})")
+                output = _dispatch(tool_call.function.name, params)
+                self.history.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": output,
+                })
 
     def reset(self) -> None:
-        """Clear conversation history for a fresh session."""
-        self.history = []
+        """Clear conversation history (keep system prompt)."""
+        self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 
 # ── CLI entry point ────────────────────────────────────────────────────────────
 
 def main() -> None:
     print("=" * 60)
-    print("  DRL Research Assistant Agent")
+    print("  DRL Research Assistant Agent  (OpenAI)")
     print("  Type 'exit' to quit | 'reset' to clear history")
     print("=" * 60)
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("\n[ERROR] Set ANTHROPIC_API_KEY environment variable first.\n")
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("\n[ERROR] Set OPENAI_API_KEY environment variable first.\n")
         return
 
     agent = DRLResearchAgent()

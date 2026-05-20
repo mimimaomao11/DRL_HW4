@@ -127,7 +127,7 @@ What loop mechanism should the agent use?
 | ReAct loop (LLM decides each step) | Flexible, context-aware | Slightly harder to debug |
 | LangGraph state machine | Fine-grained control | Over-engineering for 3 tools |
 
-**Decision:** ReAct loop via Claude's native `tool_use` API. The LLM dynamically decides whether to call another tool based on what's been returned so far. This is the simplest implementation that handles the full range of user queries.
+**Decision:** ReAct loop via OpenAI's function calling API. The LLM dynamically decides whether to call another tool based on what's been returned so far. This is the simplest implementation that handles the full range of user queries.
 
 **Key Prompt Engineering Decision:**  
 The system prompt encodes the "search first" convention explicitly:
@@ -143,26 +143,47 @@ Without this, the LLM sometimes skips the literature search step and goes direct
 
 ---
 
-## Session 5 — API Cost Optimization
+## Session 5 — LLM 後端切換：Anthropic → OpenAI
 
 **Date:** 2026-05-20
 
-**Issue:** The system prompt is ~500 tokens and is sent on every API call. In a 10-turn conversation, this costs ~5,000 tokens unnecessarily.
+**Background:** 初始設計使用 Anthropic Claude Sonnet 4.6，但使用者已有可用的 OpenAI API key，因此切換至 GPT-4o。
 
-**Solution:** Anthropic's **prompt caching** (`cache_control: ephemeral`):
+**API 格式差異對照：**
 
-```python
-system=[
-    {"type": "text", "text": SYSTEM_PROMPT,
-     "cache_control": {"type": "ephemeral"}},
-]
-```
+| 項目 | Anthropic (原始設計) | OpenAI (最終實作) |
+|------|---------------------|-----------------|
+| 環境變數 | `ANTHROPIC_API_KEY` | `OPENAI_API_KEY` |
+| 模型 | `claude-sonnet-4-6` | `gpt-4o` |
+| Tool 格式 | `{"name": ..., "input_schema": {...}}` | `{"type": "function", "function": {"name": ..., "parameters": {...}}}` |
+| 結束條件 | `stop_reason == "tool_use"` | `finish_reason == "tool_calls"` |
+| Tool 結果 | `role: "user"` + `type: "tool_result"` | `role: "tool"` + `tool_call_id` |
+| System prompt | 獨立 `system` 參數 | 放入 messages 第一筆 (`role: "system"`) |
 
-**Impact:** The static system prompt is cached for ~5 minutes. In a typical research session (5–10 turns), this reduces input token cost by ~80–90% for the system prompt portion.
+**Impact on codebase:** 只修改 `agent/harness_agent.py`，三個 tool 檔案完全不動。這驗證了工具層與 LLM 層分離的架構優點。
+
+**Removed feature:** Anthropic 的 prompt caching (`cache_control: ephemeral`) 是平台專屬功能，OpenAI 目前不支援相同機制，因此移除。
 
 ---
 
-## Session 6 — Evaluation Design
+## Session 6 — ArXiv Rate Limit 修正
+
+**Date:** 2026-05-20
+
+**Issue:** GPT-4o 在同一輪回應中連續呼叫 `search_arxiv` 兩次（第一次不帶 `max_results`，第二次帶），觸發 ArXiv API 的 rate limit（HTTP 429），導致後續請求全部 timeout。
+
+**Root cause:** ArXiv 官方要求呼叫間隔至少 3 秒，但連續兩次呼叫間隔約 0 秒。
+
+**Fix:** 在 `arxiv_search.py` 加入固定 3 秒延遲：
+```python
+time.sleep(3)  # ArXiv rate limit: max 1 req / 3 sec
+```
+
+同時將 HTTP 改為 HTTPS，timeout 從 10 秒延長至 30 秒。
+
+---
+
+## Session 7 — Evaluation Design
 
 **Date:** 2026-05-20
 
@@ -181,13 +202,13 @@ This multi-dimensional approach was adopted directly in the report's evaluation 
 
 | Decision | Chosen Approach | Alternative Rejected | Reason |
 |----------|----------------|---------------------|--------|
-| LLM backbone | Claude Sonnet 4.6 | GPT-4o | Native tool use API, prompt caching |
-| Orchestration | ReAct loop (native tool use) | LangChain/LangGraph | Simpler, no extra dependencies |
+| LLM backbone | GPT-4o (OpenAI) | Claude Sonnet 4.6 | User already had OpenAI API key |
+| Orchestration | ReAct loop (function calling) | LangChain/LangGraph | Simpler, no extra dependencies |
 | ArXiv client | urllib + xml stdlib | arxiv PyPI package | Zero extra dependencies |
 | Memory persistence | JSON flat file | SQLite / Redis | Sufficient for demo scale |
 | Tool count | 3 (search, run, analyze) | 5+ tools | Minimum sufficient for full workflow |
 | Async vs sync | Synchronous | Async (asyncio) | Simplicity; SB3 is CPU-bound anyway |
-| Prompt caching | Yes (ephemeral) | No caching | ~80% cost reduction per session |
+| ArXiv rate limit | 3s sleep per call | No delay | Prevent HTTP 429 from consecutive calls |
 
 ---
 
